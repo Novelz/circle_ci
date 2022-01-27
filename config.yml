@@ -1,0 +1,71 @@
+version: 3
+jobs:
+  deploy:
+    docker:
+      - image: cimg/node:14.18
+
+    working_directory: ~/repo
+    
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-deps-{{ checksum "package-lock.json" }}
+            - v1-deps-
+      - run: npm install
+      - save_cache:
+          key: v1-deps-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+      - run: 
+          command: npm run prod
+      - run: 
+          name: Deploy Prod Branch
+          command: |
+            sudo apt-get update
+            sudo apt-get -qq install git-ftp
+            echo "Deploying project ..."
+            git reset --hard
+            git ftp push --user "${prod_user}" --passwd "${prod_password}" ${prod_host}
+  
+  deploy_dev:
+    docker:
+      - image: cimg/node:14.18
+    
+    working_directory: ~/repo
+    
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-deps-{{ checksum "package-lock.json" }}
+            - v1-deps-
+      - run: npm install
+      - save_cache:
+          key: v1-deps-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+      - run: 
+          name: Deploy Dev Branch
+          command: |
+            sudo apt-get update
+            sudo apt-get -qq install git-ftp
+            echo "Deploying project ..."
+            git reset --hard
+            git ftp push --user "${demo_user}" --passwd "${demo_password}" ${demo_host}
+
+
+workflows:
+  version: 2
+  master-deploy:
+    jobs:
+      - deploy:
+          filters:
+            branches:
+              only: deployment_prod
+  dev-deploy:
+    jobs:
+      - deploy_dev:
+          filters:
+            branches:
+              only: deployment_dev
